@@ -8,6 +8,10 @@
 
 @import 'layout';
 
+h2 {
+	color: red;
+}
+
 /*********************************************
  * GLOBAL STYLES
  *********************************************/
@@ -1816,6 +1820,6 @@ $notesWidthPercent: 25%;
  * PRINT STYLES
  *********************************************/
 
+
 @import 'print/pdf.scss';
 @import 'print/paper.scss';
-

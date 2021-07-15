@@ -8,16 +8,206 @@
 
 		<link rel="stylesheet" href="dist/reset.css">
 		<link rel="stylesheet" href="dist/reveal.css">
-		<link rel="stylesheet" href="dist/theme/black.css">
+		<link rel="stylesheet" href="dist/theme/sunblind.css">
 
 		<!-- Theme used for syntax highlighted code -->
 		<link rel="stylesheet" href="plugin/highlight/monokai.css">
 	</head>
 	<body>
 		<div class="reveal">
-			<div class="slides">
-				<section>Slide 1</section>
-				<section>Slide 2</section>
+      <div class="slides">
+				<section>
+					<h2> Summer Intern Project Summary </h2>
+					<img src="images/Sprinklr Logo Mark Only Bouncing 01.gif"/>
+				</section>
+				<section>
+					<h2> Spark Metrics Monitoring</h2>
+				</section>
+				<section>
+					<h3> Goals </h3>
+					<ol>
+						<li>Making all Spark metrics available at one place.</li>
+						<li>Creating dashboard to easily visualise metrics.</li>
+						<li>Adding custom metrics of S3A.</li>
+					</ol>
+				</section>
+				<section>
+					<section>
+						<h3> Dashboard For Metrics Provided By Spark</h3>
+						<br/><br/>
+						<h4 style="text-align: left;"> Task breakdown </h4>
+						<ul>
+							<li>Making metrics data available in InfluxDB</li>
+							<li>Query InfluxDB data in Grafana Dashboard</li>
+						</ul>
+					</section>
+					<section>
+						<h4>Making metrics data available in InfluxDB</h4>
+						<p> Spark don't have an InfluxDB sink, but it do have a graphite source. InfluxDB also have 'protocol support' to input graphite data directly.</p>
+						<p> Enabling and configuring graphite sink of spark and graphite source of InfluxDB does the job.</p>
+					</section>
+					<section>
+						<h4>Making metrics data available in InfluxDB</h4>
+						<p> Once data is available in InfluxDB, Grafana dashboard can be created and can query data InfluxDB using InfluxQL. </p>
+					</section>
+				</section>
+				<section>
+					<h3> Result </h3>
+					<section>
+						<h4> Summary Metrics </h4>
+						<img src="images/dash_img2.png"> </img>
+					</section>
+					<section>
+						<br/>
+						<h4> Workload Metrics </h4>
+						<img src="images/dash_img1.png"> </img>
+					</section>
+					<section>
+						<h4>And Many More ....</h4>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h3>Adding S3A Metrics</h3>
+						<p>Create class to hold/get/increment value of metrics.</p>
+						<pre>
+							<code data-trim data-noescape>
+								public class S3Ametrics {
+
+							    private static AtomicLong someMetric = new AtomicLong();
+
+							    public static void incrementMetric(Long value) {
+							        someMetric.addAndGet(value);
+							    }
+
+							    public static long getMetric() {
+							        return someMetric.get();
+							    }
+						  </code>
+						</pre>
+					</section>
+					<section>
+						<h3>Adding S3A Metrics</h3>
+						<p>Spark Uses dropwizard's metric package for collecing metrics and reporting it to various sinks including Graphite sink.</p>
+						<p>Register S3A metrics using 'Spark Plugin' to make Spark push it to Graphite. </p>
+					</section>
+					<section>
+						<h3>Adding S3A Metrics</h3>
+						<pre>
+							<code data-trim data-noescape>
+								class S3AMetricsReg extends SparkPlugin {
+									  def s3aMetrics(metricRegistry: MetricRegistry): Unit= {
+											metricRegistry.register(MetricRegistry.name("S3AMetric"), new Gauge[Long] {
+									      override def getValue: Long = {
+									        org.apache.hadoop.fs.s3a.S3AMetric.getMetric
+									      }
+									    })
+										}
+
+										// This code will run in driver
+										override def driverPlugin(): DriverPlugin = {
+									    new DriverPlugin() {
+									      override def init(sc: SparkContext, myContext: PluginContext): JMap[String, String] = {
+									        s3aMetrics(myContext.metricRegistry)
+									        null
+									      }
+									    }
+									  }
+
+										//This code will run in each executor
+										override def executorPlugin(): ExecutorPlugin = {
+									    new ExecutorPlugin {
+									      override def init(myContext:PluginContext, extraConf:JMap[String, String])  = {
+									        // Don't register executor plugin if in local mode
+									        if (! myContext.conf.get("spark.master").startsWith("local")) {
+									          s3aMetrics(myContext.metricRegistry)
+									        }
+									      }
+									    }
+									  }
+									}
+						  </code>
+						</pre>
+					</section>
+					<section>
+						<h3> Increment/Change The Metrics!!</h3>
+						<p> Spark uses hadoop-aws module to read/write files to AWS S3. </p>
+						<p> In order to increment/change metrics created, Hadoop's code has to be modified to calculate required metrics.</p>
+					</section>
+				</section>
+				<section>
+					<br/>
+					<h3>Results</h3>
+					<section><img src="images/S3Adash.png"/></section>
+				</section>
+				<section>
+					<h2> Spark Query Optimisation With Help Of Dashboard</h2>
+				</section>
+				<section>
+					<h3> Limit 1 Query </h3>
+					<section>
+						<p style="font-size:30px;"> Query: SELECT * FROM table LIMIT 1</p>
+						<img src="images/limit_1_big.png"/>
+						<p style="font-size:30px;"> Problem : Spark reading all data even for getting one row from parquet file.</p>
+						<p style="font-size:30px;"> Compare metadata time, read time and cpu time. </p>
+					</section>
+					<section>
+						<h4> Problem Analysis </h4>
+						<p style="font-size:30px;"> Spark don't wait to read footer of parquet files instead it estimates number of tasks to start.</p>
+						<ul style="font-size:30px;list-style: none;">
+							<li>Step 1: totalBytes = (sum of size of all parquet files) + (number of parquet files) * (4 * 1024 * 1024)</li><br/>
+							<li>Step 2: bytesPerCore = totalBytes / (spark defualt parallelism)</li><br/>
+							<li>Step 3: maxSplitBytes = max(bytesPerCore, (spark max partition bytes))</li><br/>
+							<li>Step 4: spark will start ceil(totalBytes/maxSplitBytes) number of tasks.</li>
+						</ul>
+					</section>
+					<section>
+						<h4> Optimisation </h4>
+						<p> Decrease row group size to give more number of row group to a single task. </p>
+						<p> Now each task will read only one row group to produce one record. Thus, Spark will not read whole data.</p>
+						<p> NOTE: decreasing row group size can have implications on other query (if there are other queries on same parquet file)</p>
+					</section>
+					<section>
+						<p> After decreasing row group size,</p>
+						<img src="images/limit_1_small.png"/>
+					</section>
+				</section>
+				<section>
+					<h3> Equal To Query </h3>
+					<section>
+							<br/>
+							<p style="font-size:30px;"> Query: SELECT * FROM table WHERE likes=10000</p>
+							<img src="images/EqualToQueryWithoutDict.png" />
+							<p style="font-size:30px;"> Problem : Spark reading too much unrequired data. Upon analysis of parquet file, I found no dictionary being stored for column on which query was applied.</p>
+							<p style="font-size:30px;">Compare metadata time, read time and cpu time.</p>
+					</section>
+					<section>
+						<h4> Optimisation </h4>
+						<p> Make parquet store dictionary for 'likes' column either by increasing limit of dictionary size or decreasing row group size.</p>
+					</section>
+					<section>
+						<p> After making dictionary available,</p>
+						<img src="images/EqualToQueryWithDict.png"/>
+					</section>
+				</section>
+				<section>
+					<h3> Learnings </h3>
+					<div>
+						<p><img style="width:80px;margin:0px" src="images/apache-spark.png" /></p>
+						<p><img style="width:100px;margin:0px" src="images/parquet_logo.png" /></p>
+						<p><img style="width:100px;margin:0px" src="images/grafana.png" /></p>
+						<p><img style="width:60px;margin:0px" src="images/influx.png" /></p>
+						<p><img style="width:60px;margin:0px" src="images/dropwizard.svg" /></p>
+					</div>
+				</section>
+				<section>
+
+					<h2 style="margin: 2em auto"> Thank You </h2>
+					<p> Special thanks to Amit Kumar for guiding me.</p>
+					<p style="font-size:10px;margin: 20em auto"> Link to Github : <a>https://github.com/Rushi11111/SparkMetricsAndQueryOptimisation</a> </p>
+
+					</div>
+				</section>
 			</div>
 		</div>
 
@@ -31,10 +221,11 @@
 			// - https://revealjs.com/config/
 			Reveal.initialize({
 				hash: true,
-
+				width: 1000,
 				// Learn about plugins: https://revealjs.com/plugins/
 				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
 			});
 		</script>
+
 	</body>
 </html>
