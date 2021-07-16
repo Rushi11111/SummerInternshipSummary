@@ -175,7 +175,7 @@
 					</section>
 				</section>
 				<section>
-					<h3> Equal To Query </h3>
+					<h3> Equal To Query For Integer Column</h3>
 					<section>
 							<br/>
 							<p style="font-size:30px;"> Query: SELECT * FROM table WHERE likes=10000</p>
@@ -190,6 +190,23 @@
 					<section>
 						<p> After making dictionary available,</p>
 						<img src="images/EqualToQueryWithDict.png"/>
+					</section>
+				</section>
+				<section>
+					<h3> Equal To Query For String Columns </h3>
+					<section>
+						</br>
+						<p style="font-size:30px;"> Query: SELECT * FROM table WHERE user_description=Mother</p>
+						<img src="images/EqualToStringWithoutDict.png"/>
+						<p style="font-size:30px;"> Problem : Once again Spark reading data that could have been skipped with a dictionary.</p>
+					</section>
+					<section>
+						<h4> Optimisation </h4>
+						<p> Increased max dictionary size to 10 MB (in short made dictionary available for that column). </p>
+					</section>
+					<section>
+						<p> After Optimisation </p>
+						<img src="images/EqualToStringWithDict.png"/>
 					</section>
 				</section>
 				<section>
@@ -210,6 +227,7 @@
 
 					</div>
 				</section>
+
 			</div>
 		</div>
 
