@@ -85,14 +85,14 @@
 							    public static long getMetric() {
 							        return someMetric.get();
 							    }
-									
+
 								}
 						  </code>
 						</pre>
 					</section>
 					<section>
 						<h3>Adding S3A Metrics</h3>
-						<p>Spark Uses dropwizard's metric package for collecing metrics and reporting it to various sinks including Graphite sink.</p>
+						<p>Spark Uses dropwizard's metric package for collecting metrics and reporting it to various sinks including Graphite sink.</p>
 						<p>Register S3A metrics using 'Spark Plugin' to make Spark push it to Graphite. </p>
 					</section>
 					<section>
